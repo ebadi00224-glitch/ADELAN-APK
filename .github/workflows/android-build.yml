@@ -1,0 +1,66 @@
+
+name: ADELAN v2 APK Builder
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract ADELAN v2
+        run: |
+          mkdir -p project
+          unzip -o ADELAN_v2.0_GitHub_Source.zip -d project
+          echo "Project structure:"
+          find project -maxdepth 5 -type f | head -200
+
+      - name: Locate Gradle project
+        id: locate
+        run: |
+          ROOT=$(find project -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+          if [ -z "$ROOT" ]; then
+            ROOT=$(find project -type f \( -name build.gradle -o -name build.gradle.kts \) | head -n 1)
+          fi
+          if [ -z "$ROOT" ]; then
+            echo "No Android Gradle project found in ADELAN v2 ZIP."
+            exit 1
+          fi
+          echo "dir=$(dirname "$ROOT")" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Build ADELAN APK
+        working-directory: ${{ steps.locate.outputs.dir }}
+        run: |
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          else
+            gradle assembleDebug
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADELAN-v2-APK
+          path: project/**/*.apk
+          if-no-files-found: error
+          
