@@ -1,0 +1,48 @@
+name: ADELAN APK Builder
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract Project
+        run: |
+          unzip -q ADELAN_GitHub_Build_Ready.zip -d project
+
+      - name: Find Gradle Wrapper
+        run: |
+          WRAPPER=$(find project -type f -name gradlew | head -n 1)
+          if [ -z "$WRAPPER" ]; then
+            echo "Gradle wrapper not found"
+            exit 1
+          fi
+          echo "WRAPPER=$WRAPPER" >> "$GITHUB_ENV"
+          echo "PROJECT_DIR=$(dirname "$WRAPPER")" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADELAN-APK
+          path: project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          
